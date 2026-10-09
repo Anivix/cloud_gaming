@@ -1,0 +1,11 @@
+# Le portail pilote Docker de l'hôte via le socket (nécessaire pour lancer les conteneurs de jeu).
+# Attention : l'accès au socket Docker équivaut à un accès root sur l'hôte ; ne l'exposez pas sans HTTPS/VPN.
+services:
+  portail:
+    build: .
+    env_file: .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

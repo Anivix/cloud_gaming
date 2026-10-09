@@ -1,0 +1,10 @@
+[
+  {
+    "id": "bureau-gpu",
+    "name": "Bureau GPU (Selkies)",
+    "description": "Bureau Linux accéléré par GPU dans le navigateur. Installez-y Steam ou vos jeux.",
+    "image": "ghcr.io/selkies-project/nvidia-egl-desktop:latest",
+    "internalPort": 8080,
+    "env": { "TZ": "Africa/Lome", "PASSWD": "motdepasse-session" }
+  }
+]

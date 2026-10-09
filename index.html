@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloud Gaming</title>
+<style>
+:root{--bg:#f1eff9;--pn:#fff;--tx:#1b1a3b;--mut:#615f85;--ln:#d8d4ee;--ac:#ff5d73}
+@media (prefers-color-scheme:dark){:root{--bg:#14153a;--pn:#1f2152;--tx:#f0efff;--mut:#a9a7d6;--ln:#34377a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 16px}
+h1{margin:0 0 16px}
+.card{background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:16px;margin:12px 0}
+input,button{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--ln);background:var(--pn);color:var(--tx)}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:700;cursor:pointer}
+button.s{cursor:pointer}
+form{display:grid;gap:10px;max-width:320px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.mut{color:var(--mut);margin:2px 0 0}
+#err{color:var(--ac);min-height:1.5em}
+iframe{width:100%;height:70vh;border:0;border-radius:12px;margin-top:12px;background:#000}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Cloud Gaming</h1>
+<p id="err" role="alert"></p>
+
+<section id="login" class="card" hidden>
+  <form id="lf">
+    <input name="user" placeholder="Identifiant" autocomplete="username" required>
+    <input name="password" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+    <button class="p">Se connecter</button>
+  </form>
+</section>
+
+<section id="app" hidden>
+  <div class="row"><span id="slots" class="mut"></span><button class="s" id="out">Se déconnecter</button></div>
+  <div id="sess" class="card" hidden>
+    <div class="row">
+      <div><b id="sg"></b><p class="mut" id="se"></p></div>
+      <span><a id="open" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a> <button class="p" id="stop">Arrêter</button></span>
+    </div>
+    <p class="mut">Le jeu met environ 20 à 60 secondes à démarrer ; rechargez le flux si besoin.</p>
+    <iframe id="fr" allow="gamepad; fullscreen; autoplay; clipboard-read; clipboard-write"></iframe>
+  </div>
+  <div id="games"></div>
+</section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const api=async(u,o={})=>{const r=await fetch(u,{headers:{'Content-Type':'application/json'},...o,body:o.body&&JSON.stringify(o.body)});
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.error||'Erreur'),{status:r.status});return d};
+const err=m=>$('#err').textContent=m||'';
+
+async function refresh(){
+  try{
+    const [{session,used,max},games]=await Promise.all([api('/api/session'),api('/api/games')]);
+    $('#login').hidden=true;$('#app').hidden=false;
+    $('#slots').textContent=`GPU occupés : ${used} / ${max}`;
+    $('#sess').hidden=!session;
+    if(session){
+      $('#sg').textContent='Session en cours : '+session.game;
+      $('#se').textContent='Fin automatique à '+new Date(session.endsAt||Date.now()).toLocaleTimeString('fr-FR');
+      $('#open').href=session.url;
+      if($('#fr').src!==session.url)$('#fr').src=session.url;
+    }else $('#fr').removeAttribute('src');
+    $('#games').innerHTML=games.map(g=>`<div class="card row"><div><b>${g.name}</b><p class="mut">${g.description}</p></div>
+      <button class="p" data-g="${g.id}" ${session?'disabled':''}>Jouer</button></div>`).join('');
+  }catch(e){if(e.status===401){$('#app').hidden=true;$('#login').hidden=false}else err(e.message)}
+}
+$('#lf').onsubmit=async e=>{e.preventDefault();err();
+  try{await api('/api/login',{method:'POST',body:Object.fromEntries(new FormData(e.target))});refresh()}catch(x){err(x.message)}};
+$('#out').onclick=async()=>{await api('/api/logout',{method:'POST'});refresh()};
+$('#stop').onclick=async()=>{await api('/api/session',{method:'DELETE'});refresh()};
+$('#games').onclick=async e=>{const id=e.target.dataset?.g;if(!id)return;err();e.target.textContent='Démarrage…';
+  try{await api('/api/session',{method:'POST',body:{gameId:id}})}catch(x){err(x.message)}refresh()};
+refresh();setInterval(()=>{if(!$('#app').hidden)refresh()},30000);
+</script>
+</body>
+</html>
